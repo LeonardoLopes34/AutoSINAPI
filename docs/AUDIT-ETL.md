@@ -1,7 +1,8 @@
 # 🔧 Auditoria de Orientação — Camada ETL (AutoSINAPI)
 
 > Documento de orientação da camada **ETL** (open source, submodule `AutoSINAPI v0.5.0-beta.0`).
-> Parte do ecossistema AutoSINAPI auditado em `[[docs/audits/autosinapi/2026-07-17_AUDIT-GERAL]]`.
+> Parte do ecossistema AutoSINAPI auditado em `repos/mundoaec/docs/audits/autosinapi/2026-07-17_AUDIT-GERAL.md`
+> (repos independentes; caminho relativo à raiz do SistemaServerLight).
 > Segue o padrão DDD/Hexagonal já adotado em `docs/architecture.md`. Contém as seções
 > **Audit · Epic · Spec-Rule · Sprint · Story** para guiar o desenvolvimento.
 
