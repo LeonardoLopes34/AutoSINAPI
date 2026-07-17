@@ -22,8 +22,8 @@ def mock_pipeline(mocker, tmp_path):
 
         mock_db_instance = MagicMock()
         mock_db.return_value = mock_db_instance
-        # Correctly mock context manager
         mock_db_instance.__enter__.return_value = mock_db_instance
+        mock_db_instance.save_all.return_value = (0, [])
 
         mocker.patch("autosinapi.etl_pipeline.PipelineETL._get_db_config",
                       return_value={"host": "localhost", "port": 5432, "database": "test_db",
@@ -142,7 +142,7 @@ class TestRunETL:
         result = pipeline.run()
         
         assert result["status"] == pipeline.config.STATUS_SUCCESS
-        assert mock_db.save_data.called
+        assert mock_db.save_all.called
         mock_db.register_audit_log.assert_called_once()
 
     def test_run_etl_processing_error(self, mock_pipeline):

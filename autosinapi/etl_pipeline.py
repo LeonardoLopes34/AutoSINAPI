@@ -457,7 +457,8 @@ class PipelineETL:
         tables_updated = []
         records_inserted = 0
 
-        # Ordem de carga respeitando FKS
+        # Ordem de carga respeitando FKs. Persistência transacional (all-or-nothing)
+        # via Database.save_all para evitar banco parcialmente populado em falha.
         load_order = [
             ("insumos", "insumos", self.config.DB_POLICY_UPSERT, ["codigo"]),
             ("composicoes", "composicoes", self.config.DB_POLICY_UPSERT, ["codigo"]),
@@ -471,13 +472,9 @@ class PipelineETL:
             ("composicoes_mix_mao_de_obra", "composicoes_mix_mao_de_obra", self.config.DB_POLICY_UPSERT, ["composicao_codigo", "uf", "data_referencia"])
         ]
 
-        for data_key, table_name, policy, pk in load_order:
-            df = processed_data.get(data_key) if data_key in processed_data else structure_dfs.get(data_key)
-            if df is not None and not df.empty:
-                db.save_data(df, table_name, policy=policy, pk_columns=pk, 
-                             etl_run_id=self.run_id, sinapi_versao=data_referencia)
-                tables_updated.append(table_name)
-                records_inserted += len(df)
+        records_inserted, tables_updated = db.save_all(
+            load_order, processed_data, structure_dfs, self.run_id, data_referencia
+        )
 
         # Fase Final: Auditoria
         db.register_audit_log(self.run_id, data_referencia, records_inserted, tables_updated)

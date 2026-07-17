@@ -153,7 +153,7 @@ class Database:
             self.logger.error(f"Erro ao criar tabelas: {e}", exc_info=True)
             raise DatabaseError(f"Erro ao criar estrutura do banco: {e}") from e
 
-    def save_data(self, data: pd.DataFrame, table_name: str, policy: str, **kwargs):
+    def save_data(self, data: pd.DataFrame, table_name: str, policy: str, conn=None, **kwargs):
         if data.empty:
             self.logger.warning(f"DataFrame para a tabela '{table_name}' está vazio. Nenhum dado será salvo.")
             return
@@ -189,9 +189,9 @@ class Database:
             month = kwargs.get("month")
             if not year or not month:
                 raise DatabaseError("Política 'substituir' requer 'year' e 'month'.")
-            self._replace_data(data, table_name, year, month)
+            self._replace_data(data, table_name, year, month, conn=conn)
         elif policy.lower() == self.config.DB_POLICY_APPEND:
-            self._append_data(data, table_name, **kwargs)
+            self._append_data(data, table_name, conn=conn, **kwargs)
         elif policy.lower() == self.config.DB_POLICY_UPSERT:
             pk_columns = kwargs.get("pk_columns")
             if not pk_columns:
@@ -206,24 +206,62 @@ class Database:
                         f"Dados duplicados removidos em '{table_name}': "
                         f"{before - after} de {before} registros removidos."
                     )
-            self._upsert_data(data, table_name, pk_columns)
+            self._upsert_data(data, table_name, pk_columns, conn=conn)
 
-    def _append_data(self, data: pd.DataFrame, table_name: str, **kwargs):
+    def save_all(self, load_order, processed_data, structure_dfs, etl_run_id, sinapi_versao):
+        """Salva todas as tabelas da Fase 3 em UMA transação (all-or-nothing).
+
+        Garante consistência: ou todas as tabelas são persistidas, ou nenhuma
+        (rollback), evitando banco parcialmente populado em caso de falha.
+
+        :param load_order: lista de (data_key, table_name, policy, pk_columns)
+        :param processed_data: dict data_key -> DataFrame (dados transformados)
+        :param structure_dfs: dict data_key -> DataFrame (dados estruturais)
+        :return: (records_inserted, tables_updated)
+        """
+        records_inserted = 0
+        tables_updated = []
+        with self._engine.connect() as conn:
+            trans = conn.begin()
+            try:
+                for data_key, table_name, policy, pk in load_order:
+                    df = processed_data.get(data_key) if data_key in processed_data else structure_dfs.get(data_key)
+                    if df is not None and not df.empty:
+                        self.save_data(
+                            df, table_name, policy=policy, conn=conn, pk_columns=pk,
+                            etl_run_id=etl_run_id, sinapi_versao=sinapi_versao,
+                        )
+                        tables_updated.append(table_name)
+                        records_inserted += len(df)
+                trans.commit()
+            except Exception as e:
+                trans.rollback()
+                self.logger.error(f"Falha transacional no save_all (rollback): {e}", exc_info=True)
+                raise
+        return records_inserted, tables_updated
+
+    def _append_data(self, data: pd.DataFrame, table_name: str, conn=None, **kwargs):
         self.logger.info(f"Inserindo {len(data)} registros em '{table_name}' (política: append).")
+        own = conn is None
+        conn = conn if conn is not None else self._engine.connect()
         try:
-            with self._engine.connect() as conn:
-                data.to_sql(name=table_name, con=conn, if_exists="append", index=False)
+            data.to_sql(name=table_name, con=conn, if_exists="append", index=False)
         except Exception as e:
             self.logger.error(f"Erro ao inserir dados em {table_name}: {e}", exc_info=True)
             raise DatabaseError(f"Erro ao inserir dados: {str(e)}") from e
+        finally:
+            if own:
+                conn.close()
 
-    def _upsert_data(self, data: pd.DataFrame, table_name: str, pk_columns: list):
+    def _upsert_data(self, data: pd.DataFrame, table_name: str, pk_columns: list, conn=None):
         self.logger.info(f"Executando UPSERT de {len(data)} registros em '{table_name}'.")
         temp_table_name = f"{self.config.DB_TEMP_TABLE_PREFIX}{table_name}"
-        with self._engine.connect() as conn:
+        own = conn is None
+        conn = conn if conn is not None else self._engine.connect()
+        try:
             # Garante que as colunas existam no banco antes do UPSERT
             data.to_sql(name=temp_table_name, con=conn, if_exists="replace", index=False)
-            
+
             cols = ", ".join([f'"{c}"' for c in data.columns])
             pk_cols_str = ", ".join([f'"{c}"' for c in pk_columns])
             update_cols = ", ".join([f'"{c}" = EXCLUDED."{c}"' for c in data.columns if c not in pk_columns and c != 'created_at'])
@@ -231,32 +269,54 @@ class Database:
             query = f'''
                 INSERT INTO "{table_name}" ({cols})
                 SELECT {cols} FROM "{temp_table_name}"
-                ON CONFLICT ({pk_cols_str}) DO UPDATE SET {update_cols}, "updated_at" = NOW();
+                ON CONFLICT ({pk_cols_str}) DO UPDATE SET {update_cols}, "updated_at" = CURRENT_TIMESTAMP;
             '''
-            trans = conn.begin()
-            try:
-                conn.execute(text(query))
-                conn.execute(text(f'DROP TABLE "{temp_table_name}" CASCADE'))
-                trans.commit()
-            except Exception as e:
-                trans.rollback()
-                self.logger.error(f"Erro no UPSERT para {table_name}: {e}", exc_info=True)
-                raise DatabaseError(f"Erro no UPSERT: {str(e)}") from e
+            if own:
+                trans = conn.begin()
+                try:
+                    conn.execute(text(query))
+                    conn.execute(text(f'DROP TABLE IF EXISTS "{temp_table_name}"'))
+                    trans.commit()
+                except Exception as e:
+                    trans.rollback()
+                    self.logger.error(f"Erro no UPSERT para {table_name}: {e}", exc_info=True)
+                    raise DatabaseError(f"Erro no UPSERT: {str(e)}") from e
+            else:
+                # Conexão externa (transação do chamador): executa e propaga erros
+                # já encapsulados como DatabaseError para consistência.
+                try:
+                    conn.execute(text(query))
+                    conn.execute(text(f'DROP TABLE IF EXISTS "{temp_table_name}"'))
+                except Exception as e:
+                    self.logger.error(f"Erro no UPSERT para {table_name}: {e}", exc_info=True)
+                    raise DatabaseError(f"Erro no UPSERT: {str(e)}") from e
+        finally:
+            if own:
+                conn.close()
 
-    def _replace_data(self, data: pd.DataFrame, table_name: str, year: str, month: str):
+    def _replace_data(self, data: pd.DataFrame, table_name: str, year: str, month: str, conn=None):
         ref = f"{year}-{month:02d}"
         self.logger.info(f"Substituindo dados em '{table_name}' para o período {ref}.")
         delete_query = text(f"DELETE FROM \"{table_name}\" WHERE TO_CHAR(data_referencia, 'YYYY-MM') = :ref")
-        with self._engine.connect() as conn:
-            trans = conn.begin()
-            try:
+        own = conn is None
+        conn = conn if conn is not None else self._engine.connect()
+        try:
+            if own:
+                trans = conn.begin()
+                try:
+                    conn.execute(delete_query, {"ref": ref})
+                    data.to_sql(name=table_name, con=conn, if_exists="append", index=False)
+                    trans.commit()
+                except Exception as e:
+                    trans.rollback()
+                    self.logger.error(f"Erro ao substituir dados: {e}", exc_info=True)
+                    raise DatabaseError(f"Erro ao substituir dados: {str(e)}") from e
+            else:
                 conn.execute(delete_query, {"ref": ref})
                 data.to_sql(name=table_name, con=conn, if_exists="append", index=False)
-                trans.commit()
-            except Exception as e:
-                trans.rollback()
-                self.logger.error(f"Erro ao substituir dados: {e}", exc_info=True)
-                raise DatabaseError(f"Erro ao substituir dados: {str(e)}") from e
+        finally:
+            if own:
+                conn.close()
 
     def register_audit_log(self, run_id, data_ref, records, tables):
         query = text(f"INSERT INTO {self.config.DB_TABLE_AUDIT_LOG} (run_id, data_referencia, records_inserted, tables_updated) VALUES (:id, :ref, :rec, :tabs)")
