@@ -1,3 +1,16 @@
+---
+id: AUDIT-ETL-autosinapi
+type: audit
+status: active
+date: 2026-07-17
+owner: platform
+tags: [audit, etl, sinapi, coherence, resilience, autosinapi]
+links:
+  - "repos/mundoaec/docs/audits/autosinapi/2026-07-17_AUDIT-GERAL.md"
+  - "stacks/autosinapi/kong/docs/AUDIT-GATEWAY.md"
+  - "repos/autosinapi_api/docs/AUDIT-API.md"
+---
+
 # 🔧 Auditoria de Orientação — Camada ETL (AutoSINAPI)
 
 > Documento de orientação da camada **ETL** (open source, submodule `AutoSINAPI v0.5.0-beta.0`).
@@ -5,6 +18,15 @@
 > (repos independentes; caminho relativo à raiz do SistemaServerLight).
 > Segue o padrão DDD/Hexagonal já adotado em `docs/architecture.md`. Contém as seções
 > **Audit · Epic · Spec-Rule · Sprint · Story** para guiar o desenvolvimento.
+
+---
+
+## 0. Status de Remediação (2026-07-17)
+
+> **ETL P0 ainda NÃO remediado.** Os bloqueadores ETL-P0-A (contrato de status
+> ETL↔Celery / SR-ETL-1), ETL-P0-B (schema drift `origem_preco`/`percentual_mo` / SR-ETL-2) e
+> ETL-P0-C (load atômico / SR-ETL-3) permanecem abertos — nenhuma mudança de código ETL foi
+> feita na sessão 2026-07-17 (apenas cross-ref de documentação). Não há falso "done".
 
 ---
 
