@@ -22,7 +22,7 @@ class Config:
         "VALID_TYPES": ["REFERENCIA", "DESONERADO"],
         "TIMEOUT": 30,
         "ALLOWED_LOCAL_FILE_EXTENSIONS": [".xlsx", ".xls"],
-        "DOWNLOAD_FILENAME_TEMPLATE": "SINAPI_{type}_{month}_{year}",
+        "DOWNLOAD_FILENAME_TEMPLATE": "SINAPI-{year}-{month}-formato-xlsx",
         "DOWNLOAD_FILE_EXTENSION": ".zip",
 
         # --- Constantes do ETL Pipeline ---
