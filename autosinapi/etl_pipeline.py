@@ -122,7 +122,7 @@ class PipelineETL:
                     f"Verifique se o arquivo 'tools/docker/.env' existe e está preenchido corretamente."
                 )
             return {
-                'host': os.getenv("POSTGRES_HOST", "db"),
+                'host': os.getenv("PG_HOST", "autosinapi-db.lamp.local"),
                 'port': os.getenv("POSTGRES_PORT", 5432),
                 'database': os.getenv("POSTGRES_DB"),
                 'user': os.getenv("POSTGRES_USER"),
