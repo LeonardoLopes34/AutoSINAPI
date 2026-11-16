@@ -71,7 +71,7 @@ def run_etl(db_config: Dict[str, Any] = None, sinapi_config: Dict[str, Any] = No
     if db_config is None:
         try:
             db_config = {
-                'host': os.getenv('POSTGRES_HOST', 'db'),
+                'host': os.getenv('PG_HOST', 'autosinapi-db.lamp.local'),
                 'port': int(os.getenv('POSTGRES_PORT', 5432)),
                 'database': os.getenv('POSTGRES_DB'),
                 'user': os.getenv('POSTGRES_USER'),
@@ -142,7 +142,7 @@ def run_etl(db_config: Dict[str, Any] = None, sinapi_config: Dict[str, Any] = No
     # Prepare environment variables
     env_vars_to_set = {
         'DOCKER_ENV': 'true', # Assuming API runs in a docker-like environment
-        'POSTGRES_HOST': db_config.get('host'),
+        'PG_HOST': db_config.get('host'),
         'POSTGRES_PORT': db_config.get('port'),
         'POSTGRES_DB': db_config.get('database'),
         'POSTGRES_USER': db_config.get('user'),

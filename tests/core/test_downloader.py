@@ -50,19 +50,19 @@ def downloader(valid_db_config, sinapi_config):
 
 # Testes de URL Building
 def test_build_url_referencia(downloader):
-    """Testa construção de URL para planilha referencial."""
+    """Testa construção de URL para planilha referencial (padrão canônico)."""
     url = downloader._build_url()
-    assert "SINAPI_REFERENCIA_01_2023.zip" in url
+    assert "SINAPI-2023-01-formato-xlsx.zip" in url
     assert url.startswith("https://www.caixa.gov.br/Downloads/sinapi-a-vista-composicoes")
 
 
 def test_build_url_desonerado(valid_db_config):
-    """Testa construção de URL para planilha desonerada."""
+    """Testa construção de URL para planilha desonerada (padrão canônico)."""
     sinapi_cfg = {"state": "SP", "month": "12", "year": "2023", "type": "DESONERADO"}
     config = Config(db_config=valid_db_config, sinapi_config=sinapi_cfg, mode="server")
     downloader = Downloader(config)
     url = downloader._build_url()
-    assert "SINAPI_DESONERADO_12_2023.zip" in url
+    assert "SINAPI-2023-12-formato-xlsx.zip" in url
 
 
 def test_build_url_invalid_type(valid_db_config):
@@ -80,7 +80,7 @@ def test_build_url_zero_padding(valid_db_config):
     config = Config(db_config=valid_db_config, sinapi_config=sinapi_cfg, mode="server")
     downloader = Downloader(config)
     url = downloader._build_url()
-    assert "SINAPI_REFERENCIA_01_2023.zip" in url
+    assert "SINAPI-2023-01-formato-xlsx.zip" in url
 
 
 # Testes de Funcionalidade

@@ -22,6 +22,7 @@ def mock_pipeline(mocker, tmp_path):
         mock_db_instance = MagicMock()
         mock_db.return_value = mock_db_instance
         mock_db_instance.__enter__.return_value = mock_db_instance
+        mock_db_instance.save_all.return_value = (0, [])
 
         mocker.patch(
             "autosinapi.etl_pipeline.PipelineETL._get_db_config",
@@ -71,8 +72,8 @@ class TestDeleteByPeriod:
 
         pipeline.run()
 
-        # Check if save_data was called for main tables
-        assert mock_db.save_data.called
+        # Check if save_all was called for main tables (transacional)
+        assert mock_db.save_all.called
         # Check audit log registration
         mock_db.register_audit_log.assert_called_once()
 

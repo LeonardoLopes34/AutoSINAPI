@@ -43,8 +43,8 @@ def mock_pipeline(mocker, tmp_path):
     mock_config.ITEM_TYPE_COMPOSICAO = "COMPOSICAO"
     mock_config.SHEETS_TO_CONVERT = ['CSD', 'CCD', 'CSE']
     mock_config.sinapi_config = {"state": "SP", "month": "01", "year": "2023", "type": "insumos"} 
-    mock_config.STATUS_SUCCESS = "SUCESSO"
-    mock_config.STATUS_FAILURE = "FALHA"
+    mock_config.STATUS_SUCCESS = "success"
+    mock_config.STATUS_FAILURE = "failure"
     mock_config.VERSION = "1.2.0"
 
     # Patch para que PipelineETL use o mock_config
@@ -68,6 +68,7 @@ def mock_pipeline(mocker, tmp_path):
         mock_db_instance = MagicMock()
         mock_db_class.return_value = mock_db_instance
         mock_db_instance.__enter__.return_value = mock_db_instance
+        mock_db_instance.save_all.return_value = (0, [])
 
         mock_downloader_instance = MagicMock()
         mock_downloader_class.return_value = mock_downloader_instance
@@ -119,8 +120,8 @@ def test_direct_file_input(tmp_path, mock_pipeline):
 
     result = pipeline.run(input_file_path=str(test_file)) 
 
-    assert result["status"] == "SUCESSO"
-    assert mock_db.save_data.called
+    assert result["status"] == "success"
+    assert mock_db.save_all.called
 
 
 def test_invalid_input_file(mock_pipeline):
@@ -131,5 +132,5 @@ def test_invalid_input_file(mock_pipeline):
 
     result = pipeline.run()
 
-    assert result["status"] == "FALHA"
+    assert result["status"] == "failure"
     assert "Erro de download" in result["message"]

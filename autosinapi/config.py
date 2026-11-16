@@ -22,7 +22,7 @@ class Config:
         "VALID_TYPES": ["REFERENCIA", "DESONERADO"],
         "TIMEOUT": 30,
         "ALLOWED_LOCAL_FILE_EXTENSIONS": [".xlsx", ".xls"],
-        "DOWNLOAD_FILENAME_TEMPLATE": "SINAPI_{type}_{month}_{year}",
+        "DOWNLOAD_FILENAME_TEMPLATE": "SINAPI-{year}-{month}-formato-xlsx",
         "DOWNLOAD_FILE_EXTENSION": ".zip",
 
         # --- Constantes do ETL Pipeline ---
@@ -39,9 +39,9 @@ class Config:
         "DEFAULT_PLACEHOLDER_UNIT": "UN",
         "PLACEHOLDER_INSUMO_DESC_TEMPLATE": "INSUMO_DESCONHECIDO_{code}",
         "PLACEHOLDER_COMPOSICAO_DESC_TEMPLATE": "COMPOSICAO_DESCONHECIDA_{code}",
-        "STATUS_SUCCESS": "SUCESSO",
-        "STATUS_SUCCESS_NO_DATA": "SUCESSO (SEM DADOS)",
-        "STATUS_FAILURE": "FALHA",
+        "STATUS_SUCCESS": "success",
+        "STATUS_SUCCESS_NO_DATA": "no_data",
+        "STATUS_FAILURE": "failure",
         "VERSION": "1.2.0",
 
         # --- Constantes do Pre-Processor ---
