@@ -57,6 +57,19 @@ class Database:
                     self.create_tables()
                     break
 
+        # Migração compatível com bancos criados por versões anteriores do
+        # toolkit. A API e o processador usam descricao_item no histórico de
+        # manutenções, mas versões antigas da tabela não possuíam essa coluna.
+        with self._engine.begin() as conn:
+            conn.execute(text(
+                f'ALTER TABLE "{self.config.DB_TABLE_MANUTENCOES}" '
+                'ADD COLUMN IF NOT EXISTS descricao_item TEXT'
+            ))
+            conn.execute(text(
+                f'ALTER TABLE IF EXISTS "{self.config.DB_TABLE_MANUTENCOES}" '
+                'ALTER COLUMN tipo_manutencao TYPE TEXT'
+            ))
+
     def create_tables(self):
         """Cria as tabelas do modelo de dados do SINAPI no banco."""
         drop_statements = f"""
@@ -128,7 +141,8 @@ class Database:
             FOREIGN KEY (composicao_filho_codigo) REFERENCES {self.config.DB_TABLE_COMPOSICOES}(codigo) ON DELETE CASCADE
         );
         CREATE TABLE {self.config.DB_TABLE_MANUTENCOES} (
-            item_codigo INTEGER NOT NULL, tipo_item VARCHAR(20) NOT NULL, data_referencia DATE NOT NULL, tipo_manutencao VARCHAR(20) NOT NULL,
+            item_codigo INTEGER NOT NULL, tipo_item VARCHAR(20) NOT NULL, data_referencia DATE NOT NULL, tipo_manutencao TEXT NOT NULL,
+            descricao_item TEXT,
             created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW(), sinapi_versao VARCHAR(20), etl_run_id VARCHAR(36),
             PRIMARY KEY (item_codigo, tipo_item, data_referencia, tipo_manutencao)
         );
