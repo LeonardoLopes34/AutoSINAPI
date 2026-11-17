@@ -226,7 +226,8 @@ class PipelineETL:
                     name_lower = f.name.lower()
                     if 'referência' in name_lower or 'referencia' in name_lower:
                         referencia = f
-                    elif any(kw in name_lower for kw in ['manutenção', 'manutencao', 'manutenções', 'manutencoes']):
+                    # Só o radical: zip da Caixa sem flag UTF-8 extrai "Manutenções" como "ManutençΣes".
+                    elif 'manuten' in name_lower:
                         extra["manutencoes"] = f
                     elif 'família' in name_lower or 'familia' in name_lower:
                         extra["familias"] = f
